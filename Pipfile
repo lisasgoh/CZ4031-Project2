@@ -1,0 +1,30 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+black = "*"
+isort = "*"
+pre-commit = "*"
+flake8 = "*"
+pytest = "*"
+
+[packages]
+flask = "*"
+psycopg2-binary = "*"
+networkx = "*"
+matplotlib = "*"
+python-dotenv = "*"
+flake8 = "*"
+autopep8 = "*"
+
+[requires]
+python_version = "3.8"
+
+[pipenv]
+allow_prereleases = true
+
+[scripts]
+start = "bash -c 'python client.py'"
+test = "pytest tests -sv"
