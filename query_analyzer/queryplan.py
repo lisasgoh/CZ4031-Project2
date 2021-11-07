@@ -8,36 +8,20 @@ from config.base import project_root
 
 from query_analyzer.explainer import Explainer
 from query_analyzer.explainers.default_explain import default_explain
-from query_analyzer.utils import get_tree_node_pos
 
 
 class Node:
     def __init__(self, query_plan):
-        self.node_type = query_plan["Node Type"]
-        self.cost = query_plan["Total Cost"]
-        self.parent_relationship = query_plan.get("Parent Relationship")
-        self.relation = query_plan.get("Relation Name")
-        self.alias = query_plan.get("Alias")
-        self.startup_cost = query_plan.get("Startup Cost")
-        self.plan_rows = query_plan.get("Plan Rows")
-        self.plan_width = query_plan.get("Plan Width")
-        self.filter = query_plan.get("Filter")
-        self.raw_json = query_plan
-        self.explanation = self.create_explanation(query_plan)
+        self.plans = []
+        for key in query_plan:
+            setattr(self,  key.lower().replace(" ", "_"), query_plan.get(key))
+        explainer = Explainer.explainer_map.get(self.node_type, default_explain)
+        self.explanation = explainer(query_plan)
+        print("Query plan", query_plan)
 
     def __str__(self):
-        name_string = f"{self.node_type}\ncost: {self.cost}"
+        name_string = f"{self.node_type}\ncost: {self.total_cost}"
         return name_string
-
-    @staticmethod
-    def create_explanation(query_plan):
-        node_type = query_plan["Node Type"]
-        explainer = Explainer.explainer_map.get(node_type, default_explain)
-        return explainer(query_plan)
-
-    def has_children(self):
-        return "Plans" in self.raw_json
-
 
 class QueryPlan:
     """
@@ -50,15 +34,14 @@ class QueryPlan:
         self._construct_graph(self.root)
         self.raw_query = raw_query
 
-    def _construct_graph(self, curr_node):
-        self.graph.add_node(curr_node)
-        if curr_node.has_children():
-            for child in curr_node.raw_json["Plans"]:
-                child_node = Node(child)
-                self.graph.add_edge(
-                    curr_node, child_node
-                )  # add both curr_node and child_node if not present in graph
-                self._construct_graph(child_node)
+    def _construct_graph(self, cur_node):
+        self.graph.add_node(cur_node)
+
+        for child in cur_node.plans:
+            child_node = Node(child)
+            self.graph.add_edge(cur_node, child_node) 
+             # add both curr_node and child_node if not present in graph
+            self._construct_graph(child_node)
 
     def serialize_graph_operation(self) -> str:
         node_list = [self.root.node_type]
@@ -67,10 +50,16 @@ class QueryPlan:
         return "#".join(node_list)
 
     def calculate_total_cost(self):
-        return sum([x.cost for x in self.graph.nodes])
+        total_cost = 0
+        for node in self.graph.nodes:
+            total_cost += node.total_cost
+        return total_cost
 
     def calculate_plan_rows(self):
-        return sum([x.plan_rows for x in self.graph.nodes])
+        plan_rows = 0
+        for node in self.graph.nodes:
+            plan_rows += node.plan_rows
+        return plan_rows
 
     def calculate_num_nodes(self, node_type: str):
         node_count = 0
@@ -100,14 +89,14 @@ class QueryPlan:
         return graph_name
 
     def create_explanation(self, node: Node):
-        if not node.has_children:
-            return [node.explanation]
-        else:
-            result = []
-            for child in self.graph[node]:
-                result += self.create_explanation(child)
-            result += [node.explanation]
-            return result
+        # if not node.has_children:
+        #     return [node.explanation]
+        # else:
+        result = []
+        for child in self.graph[node]:
+            result += self.create_explanation(child)
+        result += [node.explanation]
+        return result
 
     def __eq__(self, obj):
         return (
@@ -119,3 +108,96 @@ class QueryPlan:
     def __hash__(self):
         """Overrides the default implementation"""
         return hash(self.serialize_graph_operation())
+
+def get_tree_node_pos(
+    G, root=None, width=1.0, height=1, vert_gap=0.1, vert_loc=0, xcenter=0.5
+):
+
+    """
+    From Joel's answer at https://stackoverflow.com/a/29597209/2966723.
+    Licensed under Creative Commons Attribution-Share Alike
+
+    If the graph is a tree this will return the positions to plot this in a
+    hierarchical layout.
+
+    G: the graph (must be a tree)
+
+    root: the root node of current branch
+    - if the tree is directed and this is not given,
+      the root will be found and used
+    - if the tree is directed and this is given, then
+      the positions will be just for the descendants of this node.
+    - if the tree is undirected and not given,
+      then a random choice will be used.
+
+    width: horizontal space allocated for this branch - avoids overlap with other branches
+
+    vert_gap: gap between levels of hierarchy
+
+    vert_loc: vertical location of root
+
+    xcenter: horizontal location of root
+    """
+    if not nx.is_tree(G):
+        raise TypeError(
+            "cannot use hierarchy_pos on a graph that is not a tree"
+        )
+
+    if root is None:
+        if isinstance(G, nx.DiGraph):
+            root = next(
+                iter(nx.topological_sort(G))
+            )  # allows back compatibility with nx version 1.11
+        else:
+            root = random.choice(list(G.nodes))
+
+    path_dict = dict(nx.all_pairs_shortest_path(G))
+    max_height = 0
+    for value in path_dict.values():
+        max_height = max(max_height, len(value))
+    vert_gap = height / max_height
+
+    def _hierarchy_pos(
+        G,
+        root,
+        width,
+        vert_gap,
+        vert_loc,
+        xcenter,
+        pos=None,
+        parent=None,
+        min_dx=0.05,
+    ):
+        """
+        see hierarchy_pos docstring for most arguments
+
+        pos: a dict saying where all nodes go if they have been assigned
+        parent: parent of this branch. - only affects it if non-directed
+
+        """
+
+        if pos is None:
+            pos = {root: (xcenter, vert_loc)}
+        else:
+            pos[root] = (xcenter, vert_loc)
+        children = list(G.neighbors(root))
+        if not isinstance(G, nx.DiGraph) and parent is not None:
+            children.remove(parent)
+        if len(children) != 0:
+            dx = max(min_dx, width / len(children))
+            nextx = xcenter - width / 2 - max(min_dx, dx / 2)
+            for child in children:
+                nextx += dx
+                pos = _hierarchy_pos(
+                    G,
+                    child,
+                    width=dx,
+                    vert_gap=vert_gap,
+                    vert_loc=vert_loc - vert_gap,
+                    xcenter=nextx,
+                    pos=pos,
+                    parent=root,
+                )
+        return pos
+
+    return _hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
