@@ -5,7 +5,6 @@ from typing import List
 import matplotlib.pyplot as plt
 import networkx as nx
 from config.base import project_root
-
 from annotation import *
 
 class Node:

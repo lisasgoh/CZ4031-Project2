@@ -1,10 +1,77 @@
+from os import *
 import os
+from itertools import product
+from random import sample
+from psycopg2 import connect, sql
+import random
+
+import networkx as nx
+from config.base import project_root
+
 from functools import wraps
 from typing import Any, Callable, List, Optional
 
-from psycopg2 import connect, sql
+import time
+import matplotlib.pyplot as plt
 
-from query_analyzer.queryplan import QueryPlan
+from annotation import *
+from queryplan import *
+
+def parse(query):
+    columns = []
+
+    # Replace all occurences of VARY(X) with x < $i, where i is the placeholder counter
+    while query.find("VARY") != -1:
+        start = query.find("VARY(")
+        subStr = query[start:]
+        end = subStr.find(")")
+        res = subStr[5:end] + " < (%f)"
+        columns.append(subStr[5:end])
+        query = query[:start] + res + query[start + end + 1 :]
+
+    res = {"bounds": [], "query": query, "error": False, "err_msg": ""}
+
+    if not len(query):
+        res["error"] = True
+        res["err_msg"] = "Empty query detected."
+
+    for column in columns:
+        table = query_runner.find_table(column)
+        temp_bounds = query_runner.find_bounds(column)
+        valid_col = query_runner.is_col_numeric(table, column)
+
+        if not table:
+            res["error"] = True
+            return res
+
+        if not valid_col:
+            res["error"] = True
+            res["err_msg"] = (
+                "Invalid query. Column {} is non-numeric and cannot be varied."
+            ).format(column)
+            return res
+
+        # create buckets using min max
+        if not temp_bounds and table:
+            temp_bounds = query_runner.find_alt_partitions(table, column)
+            res["bounds"].append(temp_bounds)
+            continue
+
+        res["bounds"].append(temp_bounds)
+
+    return res
+
+def permutate(bounds: list, query: str):
+    potential_plans = []
+    perm_bounds = list(product(*bounds))
+
+    for b in perm_bounds:
+        potential_plans.append(query % tuple(map(float, b)))
+
+    if len(potential_plans) > 100:
+        return sample(potential_plans, 100)
+
+    return potential_plans
 
 
 class QueryRunner:
@@ -166,5 +233,5 @@ class QueryRunner:
         inc = (max_res - min_res) / 10
         return [min_res + inc * i for i in range(1, 11)]
 
-
 query_runner = QueryRunner()
+

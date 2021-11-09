@@ -1,6 +1,6 @@
 import unittest
 
-from query_analyzer.queryplan import QueryPlan
+from queryplan import QueryPlan
 
 
 class TestQueryPlan(unittest.TestCase):
