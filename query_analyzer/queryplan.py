@@ -20,28 +20,32 @@ class Node:
         print("Query plan", query_plan)
 
     def __str__(self):
-        name_string = f"{self.node_type}\ncost: {self.total_cost}"
-        return name_string
+        return f"{self.node_type}\ncost: {self.total_cost}"
 
 class QueryPlan:
-    """
-    A query plan is a directed graph made up of several Nodes
-    """
-
     def __init__(self, query_json, raw_query):
         self.graph = nx.DiGraph()
         self.root = Node(query_json)
-        self._construct_graph(self.root)
-        self.raw_query = raw_query
+        self.construct_graph(self.root)
+        self.total_cost = self.calculate_total_cost()
+        self.plan_rows = self.calculate_plan_rows()
+        self.num_seq_scan_nodes = self.calculate_num_nodes("Seq Scan")
+        self.num_index_scan_nodes = self.calculate_num_nodes("Index Scan")
+        self.explanation = self.create_explanation(self.root)
 
-    def _construct_graph(self, cur_node):
-        self.graph.add_node(cur_node)
-
-        for child in cur_node.plans:
+    def construct_graph(self, root):
+        self.graph.add_node(root)
+        for child in root.plans:
             child_node = Node(child)
-            self.graph.add_edge(cur_node, child_node) 
-             # add both curr_node and child_node if not present in graph
+            self.graph.add_edge(root, child_node) 
             self._construct_graph(child_node)
+
+    def create_explanation(self, node: Node):
+        result = []
+        for child in self.graph[node]:
+            result += self.create_explanation(child)
+        result += [node.explanation]
+        return result
 
     def serialize_graph_operation(self) -> str:
         node_list = [self.root.node_type]
@@ -49,24 +53,25 @@ class QueryPlan:
             node_list.append(end.node_type)
         return "#".join(node_list)
 
-    def calculate_total_cost(self):
-        total_cost = 0
+    def calculate_num_nodes(self, node_type: str) -> int:
+        num_nodes = 0
         for node in self.graph.nodes:
-            total_cost += node.total_cost
-        return total_cost
-
-    def calculate_plan_rows(self):
+            if node.node_type == node_type:
+                num_nodes += 1
+        return num_nodes
+    
+    def calculate_plan_rows(self) -> int:
         plan_rows = 0
         for node in self.graph.nodes:
             plan_rows += node.plan_rows
         return plan_rows
 
-    def calculate_num_nodes(self, node_type: str):
-        node_count = 0
+
+    def calculate_total_cost(self) -> int:
+        total_cost = 0
         for node in self.graph.nodes:
-            if node.node_type == node_type:
-                node_count += 1
-        return node_count
+            total_cost += node.total_cost
+        return total_cost
 
     def save_graph_file(self):
         graph_name = f"graph_{str(time.time())}.png"
@@ -87,16 +92,6 @@ class QueryPlan:
         plt.savefig(filename)
         plt.clf()
         return graph_name
-
-    def create_explanation(self, node: Node):
-        # if not node.has_children:
-        #     return [node.explanation]
-        # else:
-        result = []
-        for child in self.graph[node]:
-            result += self.create_explanation(child)
-        result += [node.explanation]
-        return result
 
     def __eq__(self, obj):
         return (
