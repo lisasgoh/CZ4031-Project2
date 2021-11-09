@@ -6,18 +6,15 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from config.base import project_root
 
-from query_analyzer.explainer import Explainer
-from query_analyzer.explainers.default_explain import default_explain
-
+from annotation import *
 
 class Node:
     def __init__(self, query_plan):
         self.plans = []
         for key in query_plan:
             setattr(self,  key.lower().replace(" ", "_"), query_plan.get(key))
-        explainer = Explainer.explainer_map.get(self.node_type, default_explain)
+        explainer = Annotation.annotation_dict.get(self.node_type, defaultAnnotation)
         self.explanation = explainer(query_plan)
-        print("Query plan", query_plan)
 
     def __str__(self):
         return f"{self.node_type}\ncost: {self.total_cost}"
@@ -38,7 +35,7 @@ class QueryPlan:
         for child in root.plans:
             child_node = Node(child)
             self.graph.add_edge(root, child_node) 
-            self._construct_graph(child_node)
+            self.construct_graph(child_node)
 
     def create_explanation(self, node: Node):
         result = []
