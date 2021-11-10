@@ -1,5 +1,4 @@
 from os import *
-import os
 from itertools import product
 from random import sample
 from psycopg2 import connect, sql
@@ -17,49 +16,50 @@ import matplotlib.pyplot as plt
 from annotation import *
 from queryplan import *
 
+
 def parse(query):
     columns = []
 
-    # Replace all occurences of VARY(X) with x < $i, where i is the placeholder counter
-    while query.find("VARY") != -1:
-        start = query.find("VARY(")
-        subStr = query[start:]
-        end = subStr.find(")")
-        res = subStr[5:end] + " < (%f)"
-        columns.append(subStr[5:end])
-        query = query[:start] + res + query[start + end + 1 :]
+    # # Replace all occurences of VARY(X) with x < $i, where i is the placeholder counter
+    # while query.find("VARY") != -1:
+    #     start = query.find("VARY(")
+    #     subStr = query[start:]
+    #     end = subStr.find(")")
+    #     res = subStr[5:end] + " < (%f)"
+    #     columns.append(subStr[5:end])
+    #     query = query[:start] + res + query[start + end + 1 :]
 
-    res = {"bounds": [], "query": query, "error": False, "err_msg": ""}
+    output = {"bounds": [], "query": query, "error": False, "error_message": ""}
 
     if not len(query):
-        res["error"] = True
-        res["err_msg"] = "Empty query detected."
+        output["error"] = True
+        output["error_message"] = "Query is empty."
 
     for column in columns:
-        table = query_runner.find_table(column)
-        temp_bounds = query_runner.find_bounds(column)
-        valid_col = query_runner.is_col_numeric(table, column)
+        table = query_processor.find_table(column)
+        temp_bounds = query_processor.find_bounds(column)
+        valid_col = query_processor.is_col_numeric(table, column)
 
         if not table:
-            res["error"] = True
-            return res
+            output["error"] = True
+            return output
 
         if not valid_col:
-            res["error"] = True
-            res["err_msg"] = (
+            output["error"] = True
+            output["error_message"] = (
                 "Invalid query. Column {} is non-numeric and cannot be varied."
             ).format(column)
-            return res
+            return output
 
         # create buckets using min max
         if not temp_bounds and table:
-            temp_bounds = query_runner.find_alt_partitions(table, column)
-            res["bounds"].append(temp_bounds)
+            temp_bounds = query_processor.find_alt_partitions(table, column)
+            output["bounds"].append(temp_bounds)
             continue
 
-        res["bounds"].append(temp_bounds)
+        output["bounds"].append(temp_bounds)
 
-    return res
+    return output
 
 def permutate(bounds: list, query: str):
     potential_plans = []
@@ -74,7 +74,7 @@ def permutate(bounds: list, query: str):
     return potential_plans
 
 
-class QueryRunner:
+class QueryProcessor:
     def __init__(self):
         self.conn = self.set_up_db_connection()
         self.cursor = self.conn.cursor()
@@ -109,14 +109,16 @@ class QueryRunner:
 
     @wrap_single_transaction
     def explain(self, query: str) -> QueryPlan:
+        # get execution plan of statement from postgresql
         self.cursor.execute("EXPLAIN (FORMAT JSON) " + query)
         plan = self.cursor.fetchall()
         query_plan_dict: dict = plan[0][0][0]["Plan"]
         return QueryPlan(query_plan_dict, query)
 
-    def topKplans(
-        self, plans: List[str], topK: int, **kwargs
+    def topNplans(
+        self, plans: List[str], topN: int, **kwargs
     ) -> List[QueryPlan]:
+        # select top K plans from
         query_plans = [self.explain(plan) for plan in plans]
         unique_query_plans = []
         seen_query_plans = set()
@@ -124,7 +126,7 @@ class QueryRunner:
             if query_plan not in seen_query_plans:
                 unique_query_plans.append(query_plan)
                 seen_query_plans.add(query_plan)
-        return sorted(unique_query_plans, **kwargs)[:topK]
+        return sorted(unique_query_plans, **kwargs)[:topN]
 
     @wrap_single_transaction
     def find_table(self, column: str) -> str:
@@ -141,18 +143,19 @@ class QueryRunner:
 
         self.cursor.execute(findTableQuery, [column])
 
-        res = self.cursor.fetchall()
+        result = self.cursor.fetchall()
 
         # Nothing found
-        if len(res) == 0:
+        if len(result) == 0:
             return None
 
-        table = res[0][1]
+        table = result[0][1]
 
         return table
 
     @wrap_single_transaction
     def is_col_numeric(self, table: str, column: str) -> bool:
+        # check if column data type is numeric within table
         if not table:
             return False
 
@@ -175,6 +178,7 @@ class QueryRunner:
 
     @wrap_single_transaction
     def find_bounds(self, column: str) -> list:
+        # get the bounds of histogram from pg_stats with 10 buckets
         table = self.find_table(column)
 
         if not table:
@@ -187,51 +191,54 @@ class QueryRunner:
         self.cursor.execute(col_query)
         analyze_fetched = self.cursor.fetchall()[0]
 
-        # separate histogram bounds from pg_stats into 10 buckets
-        reduced_bounds = []
-        full_bounds = analyze_fetched[9]
+        short_bounds = []
+        # analyze_fetched[9] = histogram_bounds
+        all_bounds = analyze_fetched[9]
 
-        # return None if no bounds found
-        if not full_bounds:
+        # all bounds empty
+        if not all_bounds:
             return None
 
-        full_bounds = full_bounds[1:-1].split(",")
-        inc = len(full_bounds) // 10
-        for i in range(inc, len(full_bounds), inc):
-            reduced_bounds.append(full_bounds[i])
+        # Get all bounds
+        all_bounds = all_bounds[1:-1].split(",")
+        inc = len(all_bounds) // 10
+        for i in range(inc, len(all_bounds), inc):
+            short_bounds.append(all_bounds[i])
 
-        return reduced_bounds
+        return short_bounds
 
     @wrap_single_transaction
     def find_alt_partitions(self, table: str, column: str) -> list:
+        # used to manually find partition for histogram bounds when it cannot be queried directly from pg_stats
         col_query = (
             "SELECT * FROM pg_stats WHERE tablename='{}' and attname='{}'"
         ).format(table, column)
         self.cursor.execute(col_query)
         analyze_fetched = self.cursor.fetchall()[0]
 
-        # separate histogram bounds from pg_stats into 10 buckets
+        # analyze_fetched[6] = n_distict
         distinct = analyze_fetched[6]
 
-        # if theres 10 or less distinct values, no need for bucket creation
+        # skip bucket creation when there are less than 10 distinct values
         if 0 <= distinct <= 10:
             dist_query = ("SELECT DISTINCT {} FROM {};").format(column, table)
             self.cursor.execute(dist_query)
             distinct_vals = self.cursor.fetchall()
 
             return [val[0] for val in distinct_vals]
-
+        # bucket creation to make 10 if there are less than 10 distinct values
         min_query = ("SELECT MIN({}) FROM {}").format(column, table)
         max_query = ("SELECT MAX({}) FROM {}").format(column, table)
 
         self.cursor.execute(min_query)
-        min_res = self.cursor.fetchall()[0][0]
+        min_result = self.cursor.fetchall()[0][0]
 
         self.cursor.execute(max_query)
-        max_res = self.cursor.fetchall()[0][0]
+        max_result = self.cursor.fetchall()[0][0]
 
-        inc = (max_res - min_res) / 10
-        return [min_res + inc * i for i in range(1, 11)]
+        inc = (max_result - min_result) / 10
+        return [min_result + inc * i for i in range(1, 11)]
 
-query_runner = QueryRunner()
+
+query_processor = QueryProcessor()
 

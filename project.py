@@ -6,7 +6,7 @@ from annotation import *
 
 app = Flask(__name__)
 
-
+# link for home page
 @app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
@@ -18,29 +18,30 @@ def explain():
         return redirect("/")
 
     query = request.form["queryText"]
-    res = parse(query)
+    output = parse(query)
 
-    if res["error"]:
-        err = "Invalid query. Ensure that no columns with non-numerical data types have the VARY prefix"
+    if output["error"]:
+        error = "Query is invalid."
 
-        if res["err_msg"]:
-            err = res["err_msg"]
+        if output["error_message"]:
+            error = output["error_message"]
 
         html_context = {
-            "query": err,
-            "explanation_1": [err],
-            "explanation_2": [err],
-            "explanation_3": [err],
-            "bounds": [err],
+            "query": error,
+            "explanation_1": [error],
+            "explanation_2": [error],
+            "explanation_3": [error],
+            "bounds": [error],
         }
 
         return render_template("index.html", **html_context)
 
-    bounds = res["bounds"]
-    queryFormatted = res["query"]
-    queries = permutate(bounds, queryFormatted)
-    top_plans_by_cost = query_runner.topKplans(
-        queries, topK=3, key=lambda x: x.calculate_total_cost()
+    # get the 10 bounds
+    bounds = output["bounds"]
+    processed_query = output["query"]
+    queries = permutate(bounds, processed_query)
+    top_plans_by_cost = query_processor.topNplans(
+        queries, topN=3, key=lambda x: x.calculate_total_cost()
     )
 
     graph_file_name = [None for ix in range(3)]
