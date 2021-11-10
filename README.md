@@ -1,89 +1,61 @@
-# database-query-visualizer
+# QEP Visualizer
 
-![image](static/database_query_viz.png)
+![image](static/qep_visualizer.png)
 
-database-query-visualiser is database visualiser app for individuals who are interested in exploring how the database creates it query execution plan. database-query-visualiser also provides an easy to use interface for experimenting with running different queries and observing the execution plans.
+`QEP Visualizer` is a query execution plan (QEP) visualiser app for annotating SQL queries and generating the QEP in a graphical format for easier interpretation.
 
 ## Raw Data
 
-database-query-visualiser uses the [TPC-H](http://www.tpc.org/tpch/) raw data. Since the raw csv data is too large to be checked into VCS, download the data from [here](https://entuedu-my.sharepoint.com/:f:/g/personal/nlee016_e_ntu_edu_sg/Eu9asRzO8kVGkEYXAaafDbsBUCi4eUeKqyXawFfPnFoiog?e=O6jxY1) using your NTU office account.
+`QEP Visualizer` utilizes the [TPC-H](http://www.tpc.org/tpch/) dataset.
 
-## Quick start
+## Setup Instructions
 
 The easiest way to do development on this repo is to use docker. Download docker desktop [here](https://www.docker.com/products/docker-desktop) and set up as per instructions.
 
-1. Download csv files from [here](https://entuedu-my.sharepoint.com/:f:/g/personal/nlee016_e_ntu_edu_sg/Eu9asRzO8kVGkEYXAaafDbsBUCi4eUeKqyXawFfPnFoiog?e=O6jxY1)
-   and place them into `<project-root-folder-path>/sql/data/`
+1. Download TPC-H CSV files from [here](https://entuedu-my.sharepoint.com/:f:/g/personal/wtan132_e_ntu_edu_sg/Etinqk4fV0BAildPoIy--rABChPN2_kK0jSsGmd2b1zVrQ?e=fr7tzk)
 
-2. Set up the project and the database `docker-compose build && docker-compose up`
+2. Copy all the downloaded CSV files into the folder `<project-root>/sql/data/`
 
-Afterwards head to [url](http://localhost:5000/)
+3. Run `docker-compose build && docker-compose up` to build and run the docker containers for both the Postgres (database) instance and the Flask (application server) instance.
 
-NOTE: The csv files are huge --> Make sure that your docker engine has around 5gb worth of free space if not the creation of postgres tables will fail
+4. Head to [url](http://localhost:5000/)
 
-## Local development
+NOTE: Ensure that your docker engine has  >5GB space, otherwise the copying of all TPC-H data into the Postgres database will fail.
 
-> TLDR: Install pipenv, install precommit, download data
+## To run unit tests
 
-This project uses pipenv to manage the dependencies. To install the repo requirements:
-
+1. Install dependencies via `pipenv` in a virtual environment and activate it
 ```
-pipenv install
-pipenv shell
+pipenv install # install dependencies in virtual environment
+pipenv shell # activate virtual environment
 ```
 
-Installing pre-commit hooks (Suggested)
-
-```
-pre-commit install
-```
-
-Download data from [here](https://entuedu-my.sharepoint.com/:f:/g/personal/nlee016_e_ntu_edu_sg/Eu9asRzO8kVGkEYXAaafDbsBUCi4eUeKqyXawFfPnFoiog?e=O6jxY1)
-and extract them to `<project-root-folder-path>/sql/data/`
-
-Running the project:
+2. Run the Flask instance:
 
 ```
 python client.py
 ```
 
-## FAQS
+3. Head to [url](http://localhost:5000/) 
 
-Q: How do i installing new dependencies?
+## FAQ
 
-```
-pipenv install <dependency>
-pipenv install -d <dependency>
-
-The -d flag is used to specify development dependency
-```
-
-Q: How do i change which database the app points to?
+Q: Why is `docker-compose build && docker-compose up` taking so long?
 
 ```
-Modify the .envs/dev.env file
+Initial build takes a long time due to the large amount of data being copied into the Postgres database. This process can take anywhere from 5 - 10 minutes.
+
+Upon success, you should see the logs in the terminal reporting that the Flask server running on port 5000, along with a debugger PIN.
 ```
 
-Q: How do i set up the database for local testing?
+Q: How do I change the database used by the application?
 
 ```
-Run the sql scripts in sql/scripts/ in the order :
-  1-create_region.sql
-  2-create_nation.sql
-  3-create_part.sql
-  4-create_supplier.sql
-  5-create_partsupp.sql
-  6-create_customer.sql
-  7-create_orders.sql
-  8-create_lineitem.sql
-  9-analyze.sql
-```
+1. Change all instances of `tpch-db` to `your-database-name` in `docker-compose.yml`, `.docker/start.sh`, and `.envs/dev.env`
 
-Q: My docker-compose database seems to be hanging?
+2. Change the table creation SQL scripts in `.docker/docker-compose.yml`
 
-```
-As we are initializing the database and copying over a large amount of data from the TPC-H sample data, this process might take anywhere from 1-5 minutes.
+3. Download the data locally into the `sql/data` folder
 
-When the database copying is completed, the docker services should auto start.
-
+4. Repeat Steps 1 - 4 in `Setup Instructions` above for this new dataset
 ```
