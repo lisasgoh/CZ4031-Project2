@@ -39,10 +39,10 @@ def explain():
         "query": query,
         "graph_1": plan.save_graph_file(),
         "explanation_1": plan.create_explanation(plan.root),
-        "total_cost_1": int(plan.calculate_total_cost()),
-        "total_plan_rows_1": int(plan.calculate_plan_rows()),
-        "total_seq_scan_1": int(plan.calculate_num_nodes("Seq Scan")),
-        "total_index_scan_1": int(plan.calculate_num_nodes("Index Scan"))
+        "total_cost_1": int(plan.total_cost),
+        "total_plan_rows_1": int(plan.plan_rows),
+        "total_seq_scan_1": int(plan.num_seq_scan_nodes),
+        "total_index_scan_1": int(plan.num_index_scan_nodes)
     }
 
     return render_template("index.html", **html_context)
