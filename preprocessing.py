@@ -6,8 +6,15 @@ from annotation import *
 from interface import *
 
 
-def check(query):
-    # function to check if query is valid
+def validate(query):
+    """Check if the query is valid.
+
+    Args:
+        query (string): Query string that was entered by the user.
+
+    Returns:
+        dict: Output dict consisting of error status and error message.
+    """
     output = {"query": query, "error": False, "error_message": ""}
 
     if not len(query):
@@ -21,12 +28,18 @@ def check(query):
 
     return output
 
+
 class QueryProcessor:
     def __init__(self):
         self.conn = self.start_db_connection()
         self.cursor = self.conn.cursor()
 
     def start_db_connection(self):
+        """Establishes connection with PostgreSQL database.
+
+        Returns:
+            connection: Connection to the database.
+        """
         return connect(
             dbname=os.getenv("POSTGRES_DBNAME"),
             user=os.getenv("POSTGRES_USERNAME"),
@@ -36,7 +49,14 @@ class QueryProcessor:
         )
 
     def wrap_single_transaction(func):
-        # decorator to create cursor each time function is called
+        """Decorator to create cursor each time the function is called.
+
+        Args:
+            func ([type]): [description]
+
+        Returns:
+            [type]: [description]
+        """
         @wraps(func)
         def inner_func(self, *args, **kwargs):
             try:
@@ -56,23 +76,37 @@ class QueryProcessor:
 
     @wrap_single_transaction
     def explain(self, query: str) -> QueryPlan:
-        # get execution plan of statement from postgresql
+        """Retrives execution plan of statement from PostgreSQL
+
+        Args:
+            query (str): Query string that was entered by the user.
+
+        Returns:
+            QueryPlan: An object consisting of all the necessary information in the QEP
+            to be displayed to the user.
+        """
         self.cursor.execute("EXPLAIN (FORMAT JSON) " + query)
         plan = self.cursor.fetchall()
         query_plan_dict: dict = plan[0][0][0]["Plan"]
-        return QueryPlan(query_plan_dict, query)
+        return QueryPlan(query_plan_dict)
 
     @wrap_single_transaction
     def query_valid(self, query: str):
-        # check if query is valid
+        """Validate query by trying to fetch a single row from the result set.
+
+        Args:
+            query (str): Query string
+
+        Returns:
+            bool: Whether the query is valid.
+        """
         output = True
         self.cursor.execute(query)
         try:
-            result = self.cursor.fetchone()
+            self.cursor.fetchone()
         except:
             output = False
         return output
 
 
 query_processor = QueryProcessor()
-

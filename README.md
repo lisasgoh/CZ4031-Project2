@@ -55,3 +55,7 @@ Upon success, you should see the logs in the terminal reporting that the Flask s
 3. Download the data locally into the `sql/data` folder
 
 4. Repeat Steps 1 - 4 in `Setup Instructions` above for this new dataset
+
+### Q: Help! I am facing this error: requests.exceptions.HTTPError: 409 Client Error: Conflict for url
+
+If you are using Windows OS, change the start.sh file to have the 'LF' line ending instead of the default 'CRLF'.

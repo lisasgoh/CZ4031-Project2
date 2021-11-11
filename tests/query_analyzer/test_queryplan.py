@@ -24,8 +24,8 @@ class TestQueryPlan(unittest.TestCase):
             "Total Cost": 10,
             "Plans": [],
         }
-        self.qep_nested = QueryPlan(self.qep_nested_json, None)
-        self.qep_single = QueryPlan(self.qep_single_json, None)
+        self.qep_nested = QueryPlan(self.qep_nested_json)
+        self.qep_single = QueryPlan(self.qep_single_json)
 
     def test_graph_creation(self):
         self.assertEqual(len(self.qep_nested.graph.nodes), 4)
