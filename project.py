@@ -6,19 +6,20 @@ from annotation import *
 
 app = Flask(__name__)
 
-# link for home page
+# GET endpoint for '/'
 @app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
 
 
+# GET and POST endpoint for '/result'
 @app.route("/result", methods=["POST", "GET"])
 def explain():
     if request.method == "GET":
         return redirect("/")
 
     query = request.form["queryText"]
-    output = check(query)
+    output = validate(query)
 
     if output["error"]:
         error = "Query is invalid."
@@ -37,12 +38,12 @@ def explain():
 
     html_context = {
         "query": query,
-        "graph_1": plan.save_graph_file(),
-        "explanation_1": plan.create_explanation(plan.root),
-        "total_cost_1": int(plan.total_cost),
-        "total_plan_rows_1": int(plan.plan_rows),
-        "total_seq_scan_1": int(plan.num_seq_scan_nodes),
-        "total_index_scan_1": int(plan.num_index_scan_nodes)
+        "graph": plan.save_graph_file(),
+        "explanation": plan.explanation,
+        "total_cost": int(plan.total_cost),
+        "total_plan_rows": int(plan.plan_rows),
+        "total_seq_scan": int(plan.num_seq_scan_nodes),
+        "total_index_scan": int(plan.num_index_scan_nodes),
     }
 
     return render_template("index.html", **html_context)

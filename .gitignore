@@ -156,3 +156,4 @@ sql/data/*
 
 # ignore generated data
 static/graph*
+static/qep*

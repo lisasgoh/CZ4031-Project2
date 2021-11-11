@@ -31,28 +31,28 @@
       <hr />
       <h3>3️⃣ Key Metrics</h3>
       <ul>
-        <li>Cost: {{total_cost_1}}</li>
-        <li>Number of index scans: {{total_index_scan_1}}</li>
-        <li>Number of sequential scans: {{total_seq_scan_1}}</li>
-        <li>Number of rows: {{total_plan_rows_1}}</li>
+        <li>Cost: {{total_cost}}</li>
+        <li>Number of index scans: {{total_index_scan}}</li>
+        <li>Number of sequential scans: {{total_seq_scan}}</li>
+        <li>Number of rows: {{total_plan_rows}}</li>
       </ul>
       <hr />
       <h3 class="mt-3">4️⃣ Optimal QEP - Explanation</h3>
-      {% if total_cost_1 %}
-      <p class="mt-3">Total cost: {{total_cost_1}}</p>
-      {% endif %} {% if explanation_1 %}
+      {% if total_cost %}
+      <p class="mt-3">Total cost: {{total_cost}}</p>
+      {% endif %} {% if explanation %}
       <ol>
-        {% for item in explanation_1 %}
+        {% for item in explanation %}
         <li>{{item | safe}}</li>
         {% endfor %}
       </ol>
       {% else %}
       <span>Insert query to begin</span>
-      {% endif %} {% if graph_1 %}
+      {% endif %} {% if graph %}
       <hr />
       <h3 class="mt-3">5️⃣ Optimal QEP - Visualization</h3>
       <img
-        src="{{ url_for('static', filename=graph_1) }}"
+        src="{{ url_for('static', filename=graph) }}"
         width="600"
         height="400"
       />
