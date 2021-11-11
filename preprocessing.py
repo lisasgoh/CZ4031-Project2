@@ -100,13 +100,12 @@ class QueryProcessor:
         Returns:
             bool: Whether the query is valid.
         """
-        output = True
         self.cursor.execute(query)
         try:
             self.cursor.fetchone()
         except:
-            output = False
-        return output
+            return False
+        return True
 
 
 query_processor = QueryProcessor()
