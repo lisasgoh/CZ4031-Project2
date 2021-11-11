@@ -3,7 +3,7 @@ from psycopg2 import connect, sql
 from config.base import project_root
 from functools import wraps
 from annotation import *
-from queryplan import *
+from interface import *
 
 
 def check(query):
