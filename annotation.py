@@ -56,7 +56,11 @@ def uniqueAnnotation(query_plan):
 
 # Hash
 def hashAnnotation(query_plan):
-    return f"The {italics(query_plan['Node Type'])} function hashes the query rows into memory, for use by its parent operation"
+    return f"The {italics(query_plan['Node Type'])} function hashes the query rows into memory, for use by its parent operation."
+
+# Gather Merge  
+def gatherMergeAnnotation(query_plan):
+    return f"The {italics(query_plan['Node Type'])} operation combines the output table from sub-operations by executing the operation in parallel."
 
 # Aggregate
 def aggregateAnnotation(query_plan):
@@ -285,6 +289,7 @@ class Annotation(object):
         "Sort": sortAnnotation,
         "Hash": hashAnnotation,
         "Hash Join": hashJoinAnnotation,
+        "Gather Merge": gatherMergeAnnotation,
     }
 
 if __name__ == "__main__":
