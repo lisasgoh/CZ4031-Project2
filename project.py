@@ -1,10 +1,8 @@
 from flask import Flask, redirect, render_template, request, url_for
 
 import config.base
-from query_analyzer.queryrunner import query_runner
-# from query_analyzer.utils import clean_up_static_dir
-from sql_parser.main import parse
-from sql_parser.permutate import permutate
+from preprocessing import *
+from annotation import *
 
 app = Flask(__name__)
 
@@ -53,12 +51,11 @@ def explain():
     index_scans = [None for ix in range(3)]
     for ix, plan in enumerate(top_plans_by_cost):
         graph_file_name[ix] = plan.save_graph_file()
-        explanations[ix] = plan.explanation
-        print("Explanation" , explanations[ix])
-        total_costs[ix] = int(plan.total_cost)
-        total_plan_rows[ix] = int(plan.plan_rows)
-        seq_scans[ix] = int(plan.num_seq_scan_nodes)
-        index_scans[ix] = int(plan.num_index_scan_nodes)
+        explanations[ix] = plan.create_explanation(plan.root)
+        total_costs[ix] = int(plan.calculate_total_cost())
+        total_plan_rows[ix] = int(plan.calculate_plan_rows())
+        seq_scans[ix] = int(plan.calculate_num_nodes("Seq Scan"))
+        index_scans[ix] = int(plan.calculate_num_nodes("Index Scan"))
 
     # clean_up_static_dir(graph_file_name)
 

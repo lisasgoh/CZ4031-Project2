@@ -3,6 +3,7 @@ Some links:
 https://gitlab.com/postgres/postgres/blob/master/src/include/nodes/plannodes.h
 https://docs.gitlab.com/ee/development/understanding_explain_plans.html
 '''
+
 # Create class to define constants for use to format the redrered QEP annotation onto the web interface.
 class FontFormat:
     BOLD_START = "<b>"
@@ -186,7 +187,7 @@ def mergeJoinAnnotation(query_plan):
     # Check the join type
     if "Join Type" == "Semi":
         result += " but only the records from the left relation is returned as the result"
-
+        
     result += "."
 
     return result
