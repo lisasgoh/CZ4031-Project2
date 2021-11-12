@@ -52,10 +52,10 @@ class QueryProcessor:
         """Decorator to create cursor each time the function is called.
 
         Args:
-            func ([type]): [description]
+            func (function): Function to be wrapped
 
         Returns:
-            [type]: [description]
+            function: Wrapped function
         """
         @wraps(func)
         def inner_func(self, *args, **kwargs):
